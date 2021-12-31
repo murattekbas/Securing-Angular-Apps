@@ -4,7 +4,7 @@ import { Subject } from "rxjs";
 import { Constants } from "../constants";
 import { CoreModule } from "./core.module";
 @Injectable({
-    providedIn:CoreModule
+    providedIn:'root'
 
 })
 
@@ -23,10 +23,16 @@ export class AuthService{
             redirect_uri:`${Constants.clientRoot}signin-callback`,
             scope:'openid profile projects-api',
             response_type:'code',
-            post_logout_redirect_uri:`${Constants.clientRoot}signout-callback`
+            post_logout_redirect_uri:`${Constants.clientRoot}signout-callback`,
+            automaticSilentRenew:true,
+            silent_redirect_uri:`${Constants.clientRoot}assets/silent-callback.html`
 
         }
-        this._userManager=new UserManager(stsSettings)
+        this._userManager=new UserManager(stsSettings);
+        this._userManager.events.addAccessTokenExpired(_=>{
+            this._loginChangedSubject.next(false);
+
+        });
     }
 
     login(){
@@ -59,6 +65,18 @@ export class AuthService{
 
       completeLogout(){
           this._user=null;
+          this._loginChangedSubject.next(false);
           return this._userManager.signoutRedirectCallback();
+      }
+
+      getAccessToken(){
+          return this._userManager.getUser().then(user=>{
+              if(!!user && !user.expired){
+                  return user.access_token;
+              }
+              else{
+                  return null;
+              }
+          })
       }
 }
